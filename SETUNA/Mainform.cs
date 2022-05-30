@@ -11,13 +11,20 @@ using SETUNA.Main;
 using SETUNA.Main.KeyItems;
 using SETUNA.Main.Option;
 using SETUNA.Main.Style;
+using Microsoft.VisualBasic;
+using System.Threading;
+using System.Diagnostics;
+using System.Linq;
 
 namespace SETUNA
 {
+
     // Token: 0x02000037 RID: 55
     public sealed partial class Mainform : BaseForm, IScrapKeyPressEventListener, IScrapAddedListener, IScrapRemovedListener, IScrapStyleListener, IScrapMenuListener, ISingletonForm
     {
         public static Mainform Instance { private set; get; }
+
+        int cnt = 1;
 
         // Token: 0x060001EE RID: 494 RVA: 0x0000A4C4 File Offset: 0x000086C4
         public Mainform()
@@ -42,7 +49,7 @@ namespace SETUNA
 
             Text = $"SETUNA {Application.ProductVersion}";
 
-            NetUtils.Init();
+            //NetUtils.Init();
         }
 
         // Token: 0x17000055 RID: 85
@@ -167,7 +174,30 @@ namespace SETUNA
                     {
                         if (clipBitmap != null)
                         {
-                            scrapBook.AddScrap(clipBitmap, cform.ClipStart.X, cform.ClipStart.Y, cform.ClipSize.Width, cform.ClipSize.Height);
+                            if (Barcode.automate)
+                            {
+                                if (Barcode.INSTANCE == null)
+                                {
+                                    Barcode.INSTANCE = Barcode.Create();
+                                }
+
+                                var barcode = Barcode.INSTANCE;
+
+                                //var luminiance = new BitmapLuminanceSource(clipBitmap);
+                                //var bitmapr = new BinaryBitmap(new GlobalHistogramBinarizer(luminiance));
+                                var result = barcode.Detect(clipBitmap);
+                                if (barcode._Countdown > 0 && Barcode.Countdown - barcode._Countdown <= 1)
+                                {
+                                    WorkList.Items.Add("==BIG==wait 10s " + barcode._Countdown + "/" + Barcode.Countdown);
+                                    Thread.Sleep(10000);
+                                }
+
+                                barcode.Next(this, cap_form, result);
+                            }
+                            else
+                            {
+                                scrapBook.AddScrap(clipBitmap, cform.ClipStart.X, cform.ClipStart.Y, cform.ClipSize.Width, cform.ClipSize.Height);
+                            }
                         }
                     }
                 }
@@ -177,7 +207,7 @@ namespace SETUNA
             }
             catch (Exception ex)
             {
-                Console.WriteLine("MainForm EndCapture Exception:" + ex.Message);
+                WorkList.Items.Add("MainForm EndCapture Exception:" + ex.Message);
             }
             finally
             {
@@ -521,7 +551,33 @@ namespace SETUNA
         // Token: 0x06000207 RID: 519 RVA: 0x0000B102 File Offset: 0x00009302
         private void button1_Click(object sender, EventArgs e)
         {
+            if (!Barcode.automate)
+            {
+                CaptureForm._ptStart = CaptureForm._ptStub;
+                CaptureForm._ptEnd = CaptureForm._ptStub;
+                StartCapture();
+                return;
+            }
+
+            Barcode.INSTANCE = null;
+            CaptureForm._ptStart = CaptureForm._ptStub;
+            CaptureForm._ptEnd = CaptureForm._ptStub;
+            Barcode.Countdown = 0;
+
+            var cur = Barcode.GetInputBoxPos(Handle);
+            var input = Interaction.InputBox("输入最大页数，然后选取截取区域，第一次截取识别失败则会停止，成功会等待10秒鼠标单机。", "初始化", "" + cnt, cur.X, cur.Y);
+
+            if (!int.TryParse(input, out cnt))
+            {
+                return;
+            }
+
+            Barcode.Countdown = cnt;
+
+            WorkList.Items.Clear();
+            WorkList.Items.Add("10s for 1st Click!");
             StartCapture();
+            WorkList.Items.Add("Waiting...!");
         }
 
         // Token: 0x06000208 RID: 520 RVA: 0x0000B10A File Offset: 0x0000930A
@@ -987,5 +1043,139 @@ namespace SETUNA
 
         private List<Form> forms = new List<Form>();
         private bool allScrapActive = true;
+
+        private void WorkList_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            if (Barcode.INSTANCE == null)
+            {
+                return;
+            }
+
+            Barcode.INSTANCE.ReScanQR(this, WorkList);
+
+        }
+
+        private void button2_Click_1(object sender, EventArgs e)
+        {
+            if (Barcode.INSTANCE == null)
+            {
+                return;
+            }
+
+            Barcode.INSTANCE.Assemble(this, WorkList);
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            var f = Barcode.FullPath(WorkList.SelectedItem.ToString());
+            if (File.Exists(f))
+            {
+                Process.Start(f);
+            }
+        }
+
+        private void button6_Click_1(object sender, EventArgs e)
+        {
+            var cur = Barcode.GetInputBoxPos(Handle);
+            var input = Interaction.InputBox($"输入图片文件名，文件位置为{Path.GetTempPath()}", "添加", "0_timestamp_pageNo_0.base", cur.X, cur.Y);
+
+            var f = Barcode.FullPath(input);
+            if (File.Exists(f))
+            {
+                WorkList.Items.Add(input);
+                if (Barcode.INSTANCE == null)
+                {
+                    return;
+                }
+
+                if (Barcode.INSTANCE.Parts.Count == Barcode.Countdown + 1)
+                {
+                    Barcode.INSTANCE.Parts.Add(input, Barcode.Countdown + 1);
+                }
+            }
+        }
+
+        private void button7_Click_1(object sender, EventArgs e)
+        {
+            WorkList.Items.Remove(WorkList.SelectedItem);
+            if (Barcode.INSTANCE == null)
+            {
+                return;
+            }
+            Barcode.INSTANCE.Parts.Remove("" + WorkList.SelectedItem);
+        }
+
+        private void checkBox1_CheckedChanged(object sender, EventArgs e)
+        {
+            Barcode.automate = !Barcode.automate;
+            checkBox1.Checked = Barcode.automate;
+        }
+
+        private void button8_Click(object sender, EventArgs e)
+        {
+            if (Barcode.INSTANCE == null)
+            {
+                return;
+            }
+            checkBox1.Checked = true;
+            Barcode.automate = true;
+            CaptureForm._ptStart = CaptureForm._ptStub;
+            CaptureForm._ptEnd = CaptureForm._ptStub;
+
+            Barcode.INSTANCE.ReAutoMate();
+
+            WorkList.Items.Clear();
+            WorkList.Items.Add("10s for 1st Click!");
+            StartCapture();
+            WorkList.Items.Add("ReAutoMate...!");
+        }
+
+        private void button9_Click(object sender, EventArgs e)
+        {
+            var samp = "0_" + DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            if (Barcode.INSTANCE != null)
+            {
+                samp = Barcode.INSTANCE.Filename;
+            }
+
+            var cur = Barcode.GetInputBoxPos(Handle);
+            var input = Interaction.InputBox("输入读取要素：count_timestamp", "读取", samp, cur.X, cur.Y);
+
+            Barcode.INSTANCE = new Barcode(input);
+            cnt = Barcode.Countdown;
+            WorkList.Items.Clear();
+            var list = Barcode.INSTANCE.CheckList();
+            list.Sort();
+            WorkList.Items.AddRange(list.ToArray());
+            WorkList.Items.Add($"OK Count: {Barcode.INSTANCE.Parts.Count}");
+        }
+
+        private void button10_Click(object sender, EventArgs e)
+        {
+            if (Barcode.INSTANCE == null)
+            {
+                return;
+            }
+
+            if (Barcode.INSTANCE.CheckDup()){
+                WorkList.Items.Add("已删除重复");
+            }
+            else
+            {
+                WorkList.Items.Clear();
+
+                var list = Barcode.INSTANCE.CheckList();
+                list.Sort();
+                WorkList.Items.Add("无重复");
+                WorkList.Items.AddRange(list.ToArray());
+                WorkList.Items.Add($"OK Count: {Barcode.INSTANCE.Parts.Count}");
+            }
+        }
+
+        private void checkBox2_CheckedChanged(object sender, EventArgs e)
+        {
+            Barcode.allowDUP = !Barcode.allowDUP;
+            checkBox2.Checked = !Barcode.allowDUP;
+        }
     }
 }

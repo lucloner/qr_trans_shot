@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Forms;
 using com.clearunit;
 
@@ -11,6 +13,7 @@ namespace SETUNA
         [STAThread]
         private static void Main(string[] args)
         {
+
             // 不是Win10周年更新版本及以上的，设置DPI感知
             var osVersion = Environment.OSVersion.Version;
             if (osVersion == null || osVersion.Major < 10 || osVersion.Build < 14393)

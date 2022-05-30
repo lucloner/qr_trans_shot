@@ -368,6 +368,14 @@ namespace SETUNA.Main
         // Token: 0x060002A1 RID: 673 RVA: 0x0000E7E4 File Offset: 0x0000C9E4
         private void ShowForm()
         {
+            if (Barcode.automate && _ptStart != _ptStub && _ptEnd != _ptStub)
+            {
+                //Barcode.automate = false;
+                Console.WriteLine("==BIG==Automate!");
+                EntryCapture(_ptStart, _ptEnd);
+                return;
+            }
+            Console.WriteLine("==BIG==Manual!");
             Cursor.Current = Cursors.Cross;
 
             base.Opacity = 0.0099999997764825821;
@@ -587,9 +595,22 @@ namespace SETUNA.Main
         // Token: 0x060002AD RID: 685 RVA: 0x0000EE84 File Offset: 0x0000D084
         private void CaptureForm_MouseUp(object sender, MouseEventArgs e)
         {
-            ptEnd.X = targetScreen.Bounds.X + e.X;
-            ptEnd.Y = targetScreen.Bounds.Y + e.Y;
+
+            if (Barcode.automate)
+            {
+                var size = Math.Max(e.X, e.Y);
+                ptEnd.X = targetScreen.Bounds.X + size;
+                ptEnd.Y = targetScreen.Bounds.Y + size;
+            }
+            else
+            {
+                ptEnd.X = targetScreen.Bounds.X + e.X;
+                ptEnd.Y = targetScreen.Bounds.Y + e.Y;
+            }
+
             blDrag = false;
+            _ptStart = ptStart;
+            _ptEnd = ptEnd;
             EntryCapture(ptStart, ptEnd);
         }
 
@@ -775,6 +796,11 @@ namespace SETUNA.Main
 
         // Token: 0x0400012F RID: 303
         private Point ptEnd;
+
+        public readonly static Point _ptStub = new Point(-1, -1);
+
+        public static Point _ptStart = _ptStub;
+        public static Point _ptEnd = _ptStub;
 
         // Token: 0x04000130 RID: 304
         private Point ptPrevEnd;

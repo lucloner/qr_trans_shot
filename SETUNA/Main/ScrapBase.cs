@@ -448,8 +448,15 @@ namespace SETUNA.Main
         // Token: 0x06000064 RID: 100 RVA: 0x00003F58 File Offset: 0x00002158
         public void ScrapResize()
         {
-            base.Width = imgView.Width + (Padding.Left + Padding.Right);
-            base.Height = imgView.Height + (Padding.Top + Padding.Bottom);
+            var w = 0;
+            var h = 0;
+            if (imgView != null)
+            {
+                w = imgView.Width;
+                h = imgView.Height;
+            }
+            base.Width = w + (Padding.Left + Padding.Right);
+            base.Height = h + (Padding.Top + Padding.Bottom);
         }
 
         // Token: 0x06000065 RID: 101 RVA: 0x00003FC4 File Offset: 0x000021C4
@@ -502,11 +509,17 @@ namespace SETUNA.Main
             set
             {
                 base.Padding = value;
-
+                var w = 0;
+                var h = 0;
+                if (imgView != null)
+                {
+                    w = imgView.Width;
+                    h = imgView.Height;
+                }
                 var x = Left - value.All;
                 var y = Top - value.All;
-                var num = (int)(imgView.Width * (_scale / 100f)) + value.All * 2;
-                var num2 = (int)(imgView.Height * (_scale / 100f)) + value.All * 2;
+                var num = (int)(w * (_scale / 100f)) + value.All * 2;
+                var num2 = (int)(h * (_scale / 100f)) + value.All * 2;
                 SetBoundsCore(x, y, num, num2, BoundsSpecified.Location);
                 base.ClientSize = new Size(num, num2);
             }
@@ -616,8 +629,15 @@ namespace SETUNA.Main
                 {
                     _scale = 200;
                 }
-                base.Width = (int)(imgView.Width * (_scale / 100f)) + Padding.All * 2;
-                base.Height = (int)(imgView.Height * (_scale / 100f)) + Padding.All * 2;
+                var w = 0;
+                var h = 0;
+                if (imgView != null)
+                {
+                    w = imgView.Width;
+                    h = imgView.Height;
+                }
+                base.Width = (int)(w * (_scale / 100f)) + Padding.All * 2;
+                base.Height = (int)(h * (_scale / 100f)) + Padding.All * 2;
                 Refresh();
             }
         }
